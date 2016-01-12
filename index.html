@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <link rel="stylesheet" href="http://ajax.googleapis.com/ajax/libs/angular_material/1.0.0/angular-material.min.css">
+        <link rel='stylesheet' href='css/styles.css'>
+        <!-- load angular.js in head to enable ng-cloak (hiding page content before JS is fully loaded) -->
+        <script src="http://ajax.googleapis.com/ajax/libs/angularjs/1.4.8/angular.min.js"></script>
+        <script src='lib/oauth.min.js'></script>
+        <script src='lib/sjcl.js'></script>
+        <meta name='viewport' content='width=device-width'>
+        <title>cipherbird</title>
+    </head>
+    <body data-ng-app='cipherbird'>
+        <div id='container' data-ng-controller='AuthController as authCtrl' data-ng-class='{ middle : !authCtrl.twitterReady() }' data-ng-cloak>
+            <md-content>
+                <h1>cipherbird</h1>
+                <p class='subtitle' data-ng-if='!authCtrl.twitterReady()'>Send end-to-end encrypted Twitter messages. Easy as ZnVjaw==.</p>
+                <span data-ng-if='authCtrl.twitterReady()' class='logininfo'>logged into Twitter as @{{ authCtrl.getUser() }}</span><md-button class="md-raised md-primary" data-ng-click='authCtrl.authClick()' aria-label='{{ authCtrl.twitterReady()? "Log out" : "Authenticate with Twitter" }}'>{{ authCtrl.twitterReady()? "Log out" : "Authenticate with Twitter" }}</md-button>
+              
+                <!-- MAIN CONTENT AREA -->
+                <md-content data-ng-if='authCtrl.twitterReady()' data-ng-controller='InboxController as inboxCtrl' layout='row' layout-wrap layout-align='space-between start'>
+                    <md-tabs class='md-accent' md-align-tabs=md-dynamic-height md-border-bottom data-ng-if='authCtrl.twitterReady()' flex='100' flex-order='-1' flex-order-xs='1' md-selected='authCtrl.selectedIndex'>
+                    <md-tab label='Inbox'></md-tab>
+                    <md-tab label='Compose'></md-tab>
+                </md-tabs>
+                    <div flex='30' flex-xs='100' flex-order='0'>
+                        <!-- LIST OF RECEIVED MESSAGES -->
+                        <md-toolbar>
+                            <div class='md-toolbar-tools'>
+                                <h2>Messages</h2><span flex></span><md-button class='md-raised' data-ng-click='inboxCtrl.loadMessages()' aria-label='Refresh'>Refresh</md-button>
+                            </div>
+                        </md-toolbar>
+                        <md-list>
+                            <md-list-item data-ng-repeat='item in inboxCtrl.messages' class='md-2-line' ng-click='inboxCtrl.selectMessage(item)'>
+                                <div class='md-list-item-text' layout='column'>
+                                    <h3>@{{ item.sender.screen_name }}</h3>
+                                    <h4>{{ item.created_at | dateMakerFilter | date : "dd/MM/yyyy' at 'HH:mm" }}</h4>
+                                    <img data-ng-src='media/{{ item.decryptText ? "decr" : "encr" }}.svg' alt='lock icon' class='lock'><p class='preview'>{{ item.decryptText ? item.decryptText : "" }}</p>
+                                </div>
+                            </md-list-item>
+                        </md-list>
+                        <div data-ng-if='!inboxCtrl.messages.length' class='minheight' layout-align='center center'>
+                            <div class='center-text'>No encrypted messages in your inbox.</div>
+                        </div>
+                    </div>
+                    <!-- DETAILS OF RECEIVED MESSAGE -->
+                    <div flex='70' flex-xs='100' data-ng-show='authCtrl.selectedIndex == 0' flex-order='2'>
+                    <div layout='row' layout-xs='column' class='margin-left' data-ng-if='inboxCtrl.currentMessage' layout-wrap>
+                        <md-toolbar flex='100'>
+                            <h2 class="md-toolbar-tools">Details: Message from @{{ inboxCtrl.currentMessage.sender.screen_name }}</h2>
+                        </md-toolbar>
+                        <md-content class='right-window'>
+                            <h3>{{ inboxCtrl.currentMessage.created_at | dateMakerFilter | date : "dd/MM/yyyy' at 'HH:mm" }}</h3>
+                            <p class='ciphertext'>{{ inboxCtrl.currentMessage.decryptText? inboxCtrl.currentMessage.decryptText : inboxCtrl.currentMessage.text }}</p>
+                            <img data-ng-src='{{inboxCtrl.currentMessage.image}}' alt='an attachment to the message' data-ng-if='inboxCtrl.currentMessage.showImage' class='attachment'>
+                            
+                            <md-input-container class='md-block decr-password' data-ng-if='!inboxCtrl.currentMessage.decryptText'>
+                                <label>Secret passphrase</label>
+                                <input type='password' name='password' data-ng-model='inboxCtrl.password'>
+                                
+                            </md-input-container>
+                            <div data-ng-messages='inboxCtrl.errors' role='alert'>
+                                <div class='error' data-ng-message='incorrect'>You didn't enter the correct password!</div>
+                                <div class='error' data-ng-message='empty'>You didn't enter a password!</div>
+                            </div>
+                            <md-button class="md-raised md-primary" data-ng-if='!inboxCtrl.currentMessage.decryptText' data-ng-click='inboxCtrl.decryptClick()' aria-label='Decrypt'>Decrypt</md-button>
+                            <md-button class='md-raised md-primary' data-ng-if='inboxCtrl.currentMessage.decryptText' data-ng-click='inboxCtrl.hideDecrypted()' aria-label='Hide plaintext'>Hide plaintext</md-button>
+                            </md-content>
+                        </div>
+                        <md-content data-ng-if='!inboxCtrl.currentMessage' layout='row' layout-align='center center' class='minheight' flex>
+                            <div>Select a message to see the details here.</div>
+                        </md-content>
+                    </div>
+                    <!-- COMPOSE NEW MESSAGE -->
+                    <div data-ng-show='authCtrl.selectedIndex==1' flex='70' flex-xs='100' flex-order='2'>
+                        <div data-ng-controller='ComposeController as composeCtrl' layout='column' layout-wrap class='margin-left'>
+                            <md-toolbar flex='100'>
+                                <h2 class="md-toolbar-tools">New encrypted message</h2>
+                            </md-toolbar>
+                                <form name='composeForm' class='right-window' data-ng-if='!composeCtrl.justSent'>
+                                    <h2>Compose text message</h2>
+                                    <md-autocomplete
+                                        md-search-text='composeCtrl.searchText'
+                                        md-items='item in composeCtrl.searchContacts(composeCtrl.searchText)'
+                                        md-item-text='"@" + item.screenName'
+                                        md-selected-item='composeCtrl.contact'
+                                        placeholder='Select contact ...'
+                                        name='autocomplete'
+                                        required>
+                                        <md-item-template>
+                                            <span md-highlight-text='composeCtrl.searchText' md-highlight-flags='^i' class='screen-name'>@{{ item.screenName }}</span>
+                                            <span md-highlight-text='composeCtrl.searchText' md-highlight-flags='^i' class='full-name'>{{ item.name }} </span>
+                                        </md-item-template>
+                                        <md-not-found>
+                                        No contacts matching "{{ composeCtrl.searchText }}" were found.
+                                        </md-not-found>
+                                        <div ng-messages='composeForm.autocomplete.$error'>
+                                            <div ng-message='required'>
+                                                You need to select a contact!
+                                            </div>
+                                        </div>
+                                    </md-autocomplete>
+                                    <span ng-bind='composeForm.autocomplete.$error'></span>
+                                    <md-input-container class='md-block'>
+                                        <label>Message text</label>
+                                        <textarea data-ng-model='composeCtrl.message' rows='5' name='message' required md-maxlength='5000'></textarea>
+                                        <div data-ng-messages='composeForm.message.$error'>
+                                            <div data-ng-message='required'>You need to enter a message!</div>
+                                            <div data-ng-message='md-maxlength'>Your message can't be longer than 5000 characters!</div>
+                                        </div>
+                                    </md-input-container>
+                                    <hr>
+                                    <h2>Attach an image to encrypt (optional)</h2>
+                                    <div class='logininfo'>{{ composeCtrl.googleReady() ? 'logged into Google as ' + composeCtrl.getGoogleUser() : 'Note: to send images, you need to log in with your Google account.' }}</div>
+                                    <md-button class='md-raised' flex='nogrow' data-ng-click='composeCtrl.driveAuth()' data-ng-if='!composeCtrl.googleReady()' aria-label='Authenticate with Google'>Authenticate with Google</md-button>
+                                    <md-input-container class="md-block" data-ng-if='composeCtrl.googleReady()'>
+                                        <input type='file' accept='image/*' data-ng-file-model='composeCtrl.image'>
+                                    </md-input-container>
+                                    <hr>
+                                    <h2>Choose a password and send</h2>
+                                    <md-input-container class='md-block'>
+                                        <label>Choose a secret passphrase</label>
+                                        <input type='password' name='password' data-ng-model='composeCtrl.password' required>
+                                        <div data-ng-messages='composeForm.password.$error'>
+                                            <div data-ng-message='required'>You need to enter a password!</div>
+                                        </div>
+                                    </md-input-container>
+                                    <md-button class="md-raised md-primary" flex='10' data-ng-click='composeCtrl.sendMessage()' aria-label='Send'>Send</md-button>
+                                </form>
+                        <md-content data-ng-if='composeCtrl.justSent' layout='row' layout-align='center center' class='minheight window-right' >
+                            <div>Your message to @{{composeCtrl.contact.screen_name}} was sent!</div>
+                            <md-button class='md-raised md-primary' data-ng-click='composeCtrl.composeAnother()' aria-label='Compose another message'>Compose another message</md-button>
+                        </md-content>
+                        </div>
+                    </div>
+                </md-content>
+            </md-content>
+        </div>
+        <!-- Angular.js additional libraries -->
+        <script src="http://ajax.googleapis.com/ajax/libs/angularjs/1.4.8/angular-animate.min.js"></script>
+        <script src="http://ajax.googleapis.com/ajax/libs/angularjs/1.4.8/angular-aria.min.js"></script>
+        <script src="http://ajax.googleapis.com/ajax/libs/angularjs/1.4.8/angular-messages.min.js"></script>
+
+        <!-- Angular Material Library -->
+        <script src="http://ajax.googleapis.com/ajax/libs/angular_material/1.0.0/angular-material.min.js"></script>
+
+        <!-- Google JavaScript API -->
+        <script type="text/javascript" src="https://apis.google.com/js/client.js"></script>
+
+        <script src='lib/angular-validator.min.js'></script>
+
+        <script src='lib/app.js'></script>
+        <script src='lib/services.js'></script>
+        <script src='lib/controllers.js'></script>
+        <script src='lib/directives.js'></script>
+        <script src='lib/filters.js'></script>
+    </body>
+</html>

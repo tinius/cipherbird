@@ -1,0 +1,106 @@
+/* manual classes added on top of the Angular Material framework */
+
+/* for initial welcome screen */
+.middle {
+	text-align: center;
+	margin: auto;
+	position: relative;
+	top: 40%;
+	transform: translateY(-50%);
+}
+
+/* for actual page (top area) */
+
+#container {
+	width: 85%;
+	margin: auto;
+}
+
+h1 {
+	margin: 0.5em 0;
+}
+
+p.subtitle, div.logininfo {
+	font-style: italic;
+}
+
+div.logininfo {
+	margin-bottom: 1em;
+}
+
+md-tabs-wrapper {
+	margin-bottom: 0.25em;
+}
+
+
+/* inbox message list */
+
+p.preview {
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+img.lock {
+	height: 1.2em;
+	width: 1.2em;
+}
+
+/* message details area */
+
+p.ciphertext {
+	max-width: 100%;
+	white-space: pre-wrap;
+	word-wrap: break-word;
+}
+
+img.attachment {
+	max-width: 90%;
+}
+
+div.error {
+	font-style: italic;
+	color: rgb(221,44,0); /* error colour used by Angular Material */
+	margin-bottom: 0.5em;
+}
+
+.decr-password {
+	margin-bottom: 0.25em;
+}
+
+
+/* miscellaneous (used across multiple areas) */
+
+div.margin-left {
+	margin-left: 0.25em;
+}
+
+.minheight {
+	min-height: 30vh;
+}
+
+div.center-text {
+	text-align: center;
+}
+
+h3.small-margins {
+	margin: 0.5em;
+}
+
+h4.small-margins {
+	margin: 0 0.5em;
+}
+
+.right-window {
+	margin: 0 1em;
+}
+
+@media only screen and (max-width: 599px) {
+
+	div.margin-left {
+		margin-left: 0em;
+	}
+
+	/*other responsiveness measures handled in HTML markup (based on Angular Material framework) */
+
+}
